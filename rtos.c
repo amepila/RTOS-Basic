@@ -26,6 +26,7 @@
 #define STACK_PC_OFFSET				2
 #define STACK_PSR_OFFSET			1
 #define STACK_PSR_DEFAULT			0x01000000
+#define RTOS_INVALID_TASK 			(-1)
 
 /**********************************************************************************/
 // IS ALIVE definitions
@@ -98,6 +99,7 @@ void rtos_start_scheduler(void)
 	init_is_alive();
 	task_list.global_tick = 0;
 	rtos_create_task(idle_task,0,kAutoStart);
+	task_list.current_task = RTOS_INVALID_TASK;
 #endif
 	SysTick->CTRL = SysTick_CTRL_CLKSOURCE_Msk | SysTick_CTRL_TICKINT_Msk
 	        | SysTick_CTRL_ENABLE_Msk;
@@ -132,6 +134,9 @@ rtos_tick_t rtos_get_clock(void)
 
 void rtos_delay(rtos_tick_t ticks)
 {
+	task_list.tasks[task_list.current_task].state = S_WAITING;
+	task_list.tasks[task_list.current_task].local_tick = ticks;
+	dispatcher(kFromNormalExec);
 
 }
 
@@ -183,7 +188,8 @@ static void dispatcher(task_switch_type_e type)
 FORCE_INLINE static void context_switch(task_switch_type_e type)
 {
 	register uint32_t *sp asm("sp");
-	task_list.tasks[task_list.current_task].sp = sp;
+	task_list.tasks[task_list.current_task].sp = sp - 9;
+
 	task_list.current_task = task_list.next_task;
 	task_list.tasks[task_list.current_task].state = S_RUNNING;
 	SCB->ICSR |= SCB_ICSR_PENDSVSET_Msk;
@@ -201,6 +207,7 @@ static void activate_waiting_tasks()
 
 static void idle_task(void)
 {
+	//rtos_activate_task(0);
 	for (;;)
 	{
 
@@ -216,6 +223,7 @@ void SysTick_Handler(void)
 #ifdef RTOS_ENABLE_IS_ALIVE
 	refresh_is_alive();
 #endif
+	task_list.global_tick++;
 	dispatcher(kFromISR);
 	reload_systick();
 }
