@@ -126,10 +126,10 @@ rtos_task_handle_t rtos_create_task(void (*task_body)(), uint8_t priority,
 		task_list.nTasks++;
 	}
 }
-
+///Beta version
 rtos_tick_t rtos_get_clock(void)
 {
-	return 0;
+	return (SysTick->VAL);
 }
 
 void rtos_delay(rtos_tick_t ticks)
@@ -139,15 +139,17 @@ void rtos_delay(rtos_tick_t ticks)
 	dispatcher(kFromNormalExec);
 
 }
-
+///Beta Version
 void rtos_suspend_task(void)
 {
-
+	task_list.tasks[task_list.current_task].state = S_SUSPENDED;
+	dispatcher(kFromNormalExec);
 }
-
+///Beta Version
 void rtos_activate_task(rtos_task_handle_t task)
 {
-
+	task_list.tasks[task_list.current_task].state = S_READY;
+	dispatcher(kFromNormalExec);
 }
 
 /**********************************************************************************/
@@ -196,9 +198,22 @@ FORCE_INLINE static void context_switch(task_switch_type_e type)
 
 }
 
+//Beta version
 static void activate_waiting_tasks()
 {
+	uint8_t index;
 
+	for(index = 0; index < task_list.nTasks; index++)
+	{
+		if(S_WAITING == task_list.tasks[index].state)
+		{
+			task_list.tasks[index].local_tick--;
+			if(0 == task_list.tasks[index].local_tick)
+			{
+				task_list.tasks[index].state = S_READY;
+			}
+		}
+	}
 }
 
 /**********************************************************************************/
