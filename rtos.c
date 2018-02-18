@@ -143,13 +143,13 @@ void rtos_delay(rtos_tick_t ticks)
 void rtos_suspend_task(void)
 {
 	task_list.tasks[task_list.current_task].state = S_SUSPENDED;
-	dispatcher(kFromISR);
+	dispatcher(kFromNormalExec);
 }
 ///Beta Version
 void rtos_activate_task(rtos_task_handle_t task)
 {
 	task_list.tasks[task_list.current_task].state = S_READY;
-	dispatcher(kFromISR);
+	dispatcher(kFromNormalExec);
 }
 
 /**********************************************************************************/
@@ -239,6 +239,7 @@ void SysTick_Handler(void)
 	refresh_is_alive();
 #endif
 	task_list.global_tick++;
+	activate_waiting_tasks();
 	dispatcher(kFromISR);
 	reload_systick();
 }
