@@ -52,7 +52,7 @@ rtos_task_handle_t rtos_create_task(void (*task_body)(), uint8_t priority,
  * @param none
  * @retval none
  */
-void rtos_suspend_task(void);
+void rtos_suspend_task(rtos_task_handle_t task);
 
 /*!
  * @brief Activates the task identified by the task handle
