@@ -114,20 +114,12 @@ rtos_task_handle_t rtos_create_task(void (*task_body)(), uint8_t priority,
 	rtos_task_handle_t retval = RTOS_INVALID_TASK;
 	if (RTOS_MAX_NUMBER_OF_TASKS > task_list.nTasks)
 	{
-		if(kStartSuspended == autostart)
-		{
-			rtos_suspend_task(task_list.nTasks);
-		}
-		else
-		{
-			rtos_activate_task(task_list.nTasks);
-		}
 		task_list.tasks[task_list.nTasks].priority = priority;
 		task_list.tasks[task_list.nTasks].local_tick = 0;
 		task_list.tasks[task_list.nTasks].task_body = task_body;
 		task_list.tasks[task_list.nTasks].sp =
 				&(task_list.tasks[task_list.nTasks].stack[(RTOS_STACK_SIZE - 1) - STACK_FRAME_SIZE]);
-		//task_list.tasks[task_list.nTasks].state = kStartSuspended == autostart ? S_SUSPENDED : S_READY;
+		task_list.tasks[task_list.nTasks].state = kStartSuspended == autostart ? S_SUSPENDED : S_READY;
 		task_list.tasks[task_list.nTasks].stack[RTOS_STACK_SIZE - STACK_PC_OFFSET] = (uint32_t)task_body;
 		task_list.tasks[task_list.nTasks].stack[RTOS_STACK_SIZE - STACK_PSR_OFFSET] = STACK_PSR_DEFAULT;
 		retval = task_list.nTasks;
@@ -148,13 +140,13 @@ void rtos_delay(rtos_tick_t ticks)
 	dispatcher(kFromNormalExec);
 
 }
-///Beta Version
+
 void rtos_suspend_task(rtos_task_handle_t task)
 {
 	task_list.tasks[task].state = S_SUSPENDED;
 	dispatcher(kFromNormalExec);
 }
-///Beta Version
+
 void rtos_activate_task(rtos_task_handle_t task)
 {
 	task_list.tasks[task].state = S_READY;
@@ -176,7 +168,7 @@ static void dispatcher(task_switch_type_e type)
 {
 	rtos_task_handle_t next_task = RTOS_INVALID_TASK;
 	uint8_t index;
-	int8_t highest = -21;
+	int8_t highest = -1;
 
 	for(index = 0 ; index < task_list.nTasks ; index++)
 	{
@@ -184,13 +176,14 @@ static void dispatcher(task_switch_type_e type)
 				&& (S_READY == task_list.tasks[index].state
 				|| S_RUNNING == task_list.tasks[index].state))
 		{
-			next_task = index;
 			highest = task_list.tasks[index].priority;
+			next_task = index;
+			task_list.next_task = next_task;
 		}
 	}
-	if(task_list.current_task != next_task)
+
+	if(task_list.next_task != task_list.current_task)
 	{
-		task_list.next_task = next_task;
 		context_switch(type);
 	}
 
@@ -199,6 +192,7 @@ static void dispatcher(task_switch_type_e type)
 FORCE_INLINE static void context_switch(task_switch_type_e type)
 {
 	register uint32_t *sp asm("sp");
+
 	task_list.tasks[task_list.current_task].sp = sp - 9;
 
 	task_list.current_task = task_list.next_task;
@@ -207,7 +201,6 @@ FORCE_INLINE static void context_switch(task_switch_type_e type)
 
 }
 
-//Beta version
 static void activate_waiting_tasks()
 {
 	uint8_t index;
@@ -219,7 +212,7 @@ static void activate_waiting_tasks()
 			task_list.tasks[index].local_tick--;
 			if(0 == task_list.tasks[index].local_tick)
 			{
-				rtos_activate_task(index);
+				task_list.tasks[index].state = S_READY;
 			}
 		}
 	}
@@ -231,7 +224,6 @@ static void activate_waiting_tasks()
 
 static void idle_task(void)
 {
-	//rtos_activate_task(0);
 	for (;;)
 	{
 
